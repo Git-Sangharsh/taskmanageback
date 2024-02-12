@@ -16,61 +16,60 @@ mongoose
   .catch((err) => {
     console.log("mongodb Error: ", err);
   });
-
-const signupSchema = new mongoose.Schema({
-  upName: {
-    type: String,
-    required: true,
-  },
-  upEmail: {
-    type: String,
-    required: true,
-    unique: true,
-  },
-  upPassword: {
-    type: String,
-    required: true,
-  },
-  tasks: [
-    {
-      taskAssignTitle: {
-        type: String,
-      },
-      taskAssignDesc: {
-        type: String,
-      },
-      taskStatus: {
-        type: Boolean,
-      },
-      taskAssignTime: {
-        type: Date,
-        default: Date.now,
-      },
+  const signupSchema = new mongoose.Schema({
+    upName: {
+      type: String,
+      required: true,
     },
-  ],
-
-  tasksDelete: [
-    {
-      taskDeletedTitle: {
-        type: String,
-      },
-      taskDeletedTitleDesc: {
-        type: String,
-      },
+    upEmail: {
+      type: String,
+      required: true,
+      unique: true,
     },
-  ],
-
-  taskCompleted: [
-    {
-      taskCompletedTitle: {
-        type: String,
-      },
-      taskCompletedDesc: {
-        type: String,
-      },
+    upPassword: {
+      type: String,
+      required: true,
     },
-  ],
-});
+    tasks: [
+      {
+        taskAssignTitle: {
+          type: String,
+        },
+        taskAssignDesc: {
+          type: String,
+        },
+        taskStatus: {
+          type: Boolean,
+        },
+        taskAssignTime: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+
+    tasksDelete: [
+      {
+        taskDeletedTitle: {
+          type: String,
+        },
+        taskDeletedTitleDesc: {
+          type: String,
+        },
+      },
+    ],
+
+    taskCompleted: [
+      {
+        taskCompletedTitle: {
+          type: String,
+        },
+        taskCompletedDesc: {
+          type: String,
+        },
+      },
+    ],
+  });
 
 const signUpModel = mongoose.model("signup", signupSchema);
 
@@ -96,13 +95,18 @@ app.get("/", (req, res) => {
 app.post("/signup", async (req, res) => {
   const { sendSignupName, sendSingupEmail, sendSignupPassword } = req.body;
   try {
-    const addSignup = await signUpModel.create({
-      upName: sendSignupName,
-      upEmail: sendSingupEmail,
-      upPassword: sendSignupPassword,
-    });
-    console.log("user sign up", addSignup);
-    res.status(200).json({ signup: "signup" });
+    const user = await signUpModel.findOne({ upEmail: sendSingupEmail });
+    if (user) {
+      res.status(200).json({ userExist: "exist" });
+    } else {
+      const addSignup = await signUpModel.create({
+        upName: sendSignupName,
+        upEmail: sendSingupEmail,
+        upPassword: sendSignupPassword,
+      });
+      console.log("user sign up", addSignup);
+      res.status(200).json({ signup: "signup" });
+    }
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Internal Server Error from signup" });
@@ -124,10 +128,17 @@ app.get("/signin", async (req, res) => {
         userDesc: userExist.taskAssignDesc,
         userMainArray: userExist.tasks,
       });
+    } else if (userExist && userExist.upPassword !== sendSigninPassword) {
+      return res
+        .status(200)
+        .json({ incorrect: "wrong", console: "this shit is incorrect" });
+    } else {
+      res
+        .status(500)
+        .json({ userNotFound: "creatUser", error: "create user first" });
     }
 
     // Send sign-in failed response
-    res.status(500).json({ error: "create user first" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Internal Server Error from signin" });
@@ -143,7 +154,11 @@ app.get("/admin", async (req, res) => {
         adminSuccess: "adminSuccess",
         adminName: adminExist.adminName,
       });
-    } else {
+    } else if( adminExist && adminExist.adminPassword !== sendAdminPassword){
+      res.status(200).json({
+        adminExist: "notExist"
+      })
+    }else {
       res.status(404).json({ adminError: "adminError" });
     }
   } catch (err) {
@@ -323,18 +338,14 @@ app.get("/completedget", async (req, res) => {
 
     if (user) {
       // console.log(completeUpdate)
-      res
-        .status(200)
-        .json({
-          completeUpdate: user.tasks,
-          completedTasks: user.taskCompleted,
-        });
+      res.status(200).json({
+        completeUpdate: user.tasks,
+        completedTasks: user.taskCompleted,
+      });
     } else {
-      res
-        .status(404)
-        .json({
-          error: "completed task is not found in teh completedget endpoint",
-        });
+      res.status(404).json({
+        error: "completed task is not found in teh completedget endpoint",
+      });
     }
   } catch (err) {
     console.error(err);
@@ -362,12 +373,10 @@ app.post("/del", async (req, res) => {
         // Save the changes to the database
         await user.save();
 
-        res
-          .status(200)
-          .json({
-            message: "Task removed successfully from the taskCompleted array",
-            taskCompleted: user.taskCompleted,
-          });
+        res.status(200).json({
+          message: "Task removed successfully from the taskCompleted array",
+          taskCompleted: user.taskCompleted,
+        });
       } else {
         res
           .status(404)
@@ -412,7 +421,9 @@ app.post("/undo", async (req, res) => {
           tasks: user.tasks,
         });
       } else {
-        res.status(404).json({ error: "Task not found in taskCompleted array" });
+        res
+          .status(404)
+          .json({ error: "Task not found in taskCompleted array" });
       }
     } else {
       res.status(404).json({ error: "User not found" });
@@ -420,6 +431,26 @@ app.post("/undo", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Internal Server Error from undo endpoint" });
+  }
+});
+
+app.get("/getTask", async (req, res) => {
+  const { value } = req.query;
+  try {
+    const user = await signUpModel.findOne({ upEmail: value });
+
+    if (user) {
+      res
+        .status(200)
+        .json({ mainTasks: user.tasks, complete: user.taskCompleted });
+    } else {
+      res.status(404).json({ error: "Data not found" });
+    }
+  } catch (err) {
+    console.error(err);
+    res
+      .status(500)
+      .json({ error: "Internal Server Error from getTask endpoint" });
   }
 });
 
