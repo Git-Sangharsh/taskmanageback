@@ -2,6 +2,10 @@ import express from "express";
 import mongoose from "mongoose";
 import cors from "cors";
 import bodyParser from "body-parser";
+import Jwt from "jsonwebtoken";
+
+//! add this key into the env file
+const jwtKey = "jwt-key";
 
 const app = express();
 app.use(cors());
@@ -16,60 +20,60 @@ mongoose
   .catch((err) => {
     console.log("mongodb Error: ", err);
   });
-  const signupSchema = new mongoose.Schema({
-    upName: {
-      type: String,
-      required: true,
-    },
-    upEmail: {
-      type: String,
-      required: true,
-      unique: true,
-    },
-    upPassword: {
-      type: String,
-      required: true,
-    },
-    tasks: [
-      {
-        taskAssignTitle: {
-          type: String,
-        },
-        taskAssignDesc: {
-          type: String,
-        },
-        taskStatus: {
-          type: Boolean,
-        },
-        taskAssignTime: {
-          type: Date,
-          default: Date.now,
-        },
+const signupSchema = new mongoose.Schema({
+  upName: {
+    type: String,
+    required: true,
+  },
+  upEmail: {
+    type: String,
+    required: true,
+    unique: true,
+  },
+  upPassword: {
+    type: String,
+    required: true,
+  },
+  tasks: [
+    {
+      taskAssignTitle: {
+        type: String,
       },
-    ],
+      taskAssignDesc: {
+        type: String,
+      },
+      taskStatus: {
+        type: Boolean,
+      },
+      taskAssignTime: {
+        type: Date,
+        default: Date.now,
+      },
+    },
+  ],
 
-    tasksDelete: [
-      {
-        taskDeletedTitle: {
-          type: String,
-        },
-        taskDeletedTitleDesc: {
-          type: String,
-        },
+  tasksDelete: [
+    {
+      taskDeletedTitle: {
+        type: String,
       },
-    ],
+      taskDeletedTitleDesc: {
+        type: String,
+      },
+    },
+  ],
 
-    taskCompleted: [
-      {
-        taskCompletedTitle: {
-          type: String,
-        },
-        taskCompletedDesc: {
-          type: String,
-        },
+  taskCompleted: [
+    {
+      taskCompletedTitle: {
+        type: String,
       },
-    ],
-  });
+      taskCompletedDesc: {
+        type: String,
+      },
+    },
+  ],
+});
 
 const signUpModel = mongoose.model("signup", signupSchema);
 
@@ -119,15 +123,27 @@ app.get("/signin", async (req, res) => {
     const userExist = await signUpModel.findOne({ upEmail: sendSigninEmail });
 
     if (userExist && userExist.upPassword === sendSigninPassword) {
-      // Send successful sign-in response and exit the function
-      return res.status(200).send({
-        signin: "signin",
-        user: userExist.upName,
-        userEmail: userExist.upEmail,
-        usetTask: userExist.taskAssignTitle,
-        userDesc: userExist.taskAssignDesc,
-        userMainArray: userExist.tasks,
-      });
+      Jwt.sign(
+        { userId: sendSigninEmail },
+        jwtKey,
+        { expiresIn: "2h" },
+        (err, token) => {
+          if (err) {
+            res.status(500).json({ result: "something went wrong with jwt" });
+          } else {
+            console.log("token genrated");
+            return res.status(200).send({
+              signin: "signin",
+              user: userExist.upName,
+              userEmail: userExist.upEmail,
+              usetTask: userExist.taskAssignTitle,
+              userDesc: userExist.taskAssignDesc,
+              userMainArray: userExist.tasks,
+              auth: token
+            });
+          }
+        }
+      );
     } else if (userExist && userExist.upPassword !== sendSigninPassword) {
       return res
         .status(200)
@@ -150,15 +166,30 @@ app.get("/admin", async (req, res) => {
   try {
     const adminExist = await adminModel.findOne({ adminName: sendAdminName });
     if (adminExist && adminExist.adminPassword === sendAdminPassword) {
+      Jwt.sign(
+        { userId: sendAdminName },
+        jwtKey,
+        { expiresIn: "2h" },
+        (err, token) => {
+          if (err) {
+            res.status(500).json({ result: "something went wrong with jwt" });
+          } 
+          else {
+            console.log("token genrated");
+            res.status(200).json({
+              adminSuccess: "adminSuccess",
+              adminName: adminExist.adminName,
+              auth: token,
+              genrated: "genrated",
+            });
+          }
+        }
+      );
+    } else if (adminExist && adminExist.adminPassword !== sendAdminPassword) {
       res.status(200).json({
-        adminSuccess: "adminSuccess",
-        adminName: adminExist.adminName,
+        adminExist: "notExist",
       });
-    } else if( adminExist && adminExist.adminPassword !== sendAdminPassword){
-      res.status(200).json({
-        adminExist: "notExist"
-      })
-    }else {
+    } else {
       res.status(404).json({ adminError: "adminError" });
     }
   } catch (err) {
