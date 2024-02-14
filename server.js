@@ -131,7 +131,6 @@ app.get("/signin", async (req, res) => {
           if (err) {
             res.status(500).json({ result: "something went wrong with jwt" });
           } else {
-            console.log("token genrated");
             return res.status(200).send({
               signin: "signin",
               user: userExist.upName,
@@ -173,7 +172,7 @@ app.get("/admin", async (req, res) => {
         (err, token) => {
           if (err) {
             res.status(500).json({ result: "something went wrong with jwt" });
-          } 
+          }
           else {
             console.log("token genrated");
             res.status(200).json({
