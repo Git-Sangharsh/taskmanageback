@@ -3,9 +3,13 @@ import mongoose from "mongoose";
 import cors from "cors";
 import bodyParser from "body-parser";
 import Jwt from "jsonwebtoken";
+import { config as dotenvConfig } from "dotenv";
 
 //! add this key into the env file
-const jwtKey = "jwt-key";
+dotenvConfig();
+const envUserName = process.env.MONGODB_USERNAME;
+const envPassWord = process.env.MONGODB_PASSWORD;
+const envJwtKey = process.env.ENV_JWTKEY;
 
 const app = express();
 app.use(cors());
@@ -13,13 +17,14 @@ app.use(bodyParser.json());
 const port = 5000;
 
 mongoose
-  .connect("mongodb://127.0.0.1:27017/management")
-  .then(() => {
-    console.log("MongoDb Connected");
-  })
-  .catch((err) => {
-    console.log("mongodb Error: ", err);
+  .connect(
+    `mongodb+srv://${envUserName}:${envPassWord}@mainnikedb.jx4pwkk.mongodb.net/taskmanagementdb`
+  )
+  .then(() => console.log("mongodb connected"))
+  .catch((error) => {
+    console.log("mongodb error: ", error);
   });
+
 const signupSchema = new mongoose.Schema({
   upName: {
     type: String,
@@ -108,7 +113,6 @@ app.post("/signup", async (req, res) => {
         upEmail: sendSingupEmail,
         upPassword: sendSignupPassword,
       });
-      console.log("user sign up", addSignup);
       res.status(200).json({ signup: "signup" });
     }
   } catch (err) {
@@ -125,7 +129,7 @@ app.get("/signin", async (req, res) => {
     if (userExist && userExist.upPassword === sendSigninPassword) {
       Jwt.sign(
         { userId: sendSigninEmail },
-        jwtKey,
+        envJwtKey,
         { expiresIn: "2h" },
         (err, token) => {
           if (err) {
@@ -167,14 +171,13 @@ app.get("/admin", async (req, res) => {
     if (adminExist && adminExist.adminPassword === sendAdminPassword) {
       Jwt.sign(
         { userId: sendAdminName },
-        jwtKey,
+        envJwtKey,
         { expiresIn: "2h" },
         (err, token) => {
           if (err) {
             res.status(500).json({ result: "something went wrong with jwt" });
           }
           else {
-            console.log("token genrated");
             res.status(200).json({
               adminSuccess: "adminSuccess",
               adminName: adminExist.adminName,
@@ -260,32 +263,23 @@ app.post("/deleted", async (req, res) => {
       );
 
       if (taskIndex !== -1) {
-        // Log a message when taskNameSend is found in tasks array
-        console.log("Task found inside the tasks");
-
-        // Add the task to the tasksDelete array
         user.tasksDelete.push({
           taskDeletedTitle: user.tasks[taskIndex].taskAssignTitle,
           taskDeletedTitleDesc: user.tasks[taskIndex].taskAssignDesc,
         });
 
-        // Remove the task from the tasks array
         user.tasks.splice(taskIndex, 1);
-
-        // Save the changes to the database
         await user.save();
 
-        // Return the updated tasks array in the response
+        // Returning the updated tasks array in the response
         res.status(200).json({
           message: "Task deleted successfully",
           updatedTasks: user.tasks,
         });
       } else {
-        // If taskNameSend is not found, return an error response
         res.status(404).json({ error: "Task not found" });
       }
     } else {
-      // If user is not found, return an error response
       res.status(404).json({ error: "User not found" });
     }
   } catch (err) {
