@@ -11,6 +11,9 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "engines": {
+    "node": ">=18.18.0"
+  },
   "dependencies": {
     "argon2": "^0.31.2",
     "bcrypt": "^5.1.1",
