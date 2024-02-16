@@ -164,7 +164,7 @@ app.get("/signin", async (req, res) => {
   }
 });
 
-app.get("/admin", async (req, res) => {
+app.post("/admin", async (req, res) => {
   const { sendAdminName, sendAdminPassword } = req.body;
   try {
     const adminExist = await adminModel.findOne({ adminName: sendAdminName });
