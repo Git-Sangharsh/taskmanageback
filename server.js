@@ -4,6 +4,7 @@ import cors from "cors";
 import bodyParser from "body-parser";
 import Jwt from "jsonwebtoken";
 import { config as dotenvConfig } from "dotenv";
+import argon2 from "argon2";
 
 //! add this key into the env file
 dotenvConfig();
@@ -168,39 +169,42 @@ app.post("/admin", async (req, res) => {
   const { sendAdminName, sendAdminPassword } = req.body;
   try {
     const adminExist = await adminModel.findOne({ adminName: sendAdminName });
-    if (adminExist && adminExist.adminPassword === sendAdminPassword) {
-      Jwt.sign(
-        { userId: sendAdminName },
-        envJwtKey,
-        { expiresIn: "2h" },
-        (err, token) => {
-          if (err) {
-            res.status(500).json({ result: "something went wrong with jwt" });
+
+    if (adminExist) {
+      const isPasswordValid = await argon2.verify(adminExist.adminPassword, sendAdminPassword);
+
+      if (isPasswordValid) {
+        Jwt.sign(
+          { userId: sendAdminName },
+          envJwtKey,
+          { expiresIn: "2h" },
+          (err, token) => {
+            if (err) {
+              res.status(500).json({ result: "something went wrong with jwt" });
+            } else {
+              res.status(200).json({
+                adminSuccess: "adminSuccess",
+                adminName: adminExist.adminName,
+                auth: token,
+                generated: "generated",
+              });
+            }
           }
-          else {
-            res.status(200).json({
-              adminSuccess: "adminSuccess",
-              adminName: adminExist.adminName,
-              auth: token,
-              genrated: "genrated",
-            });
-          }
-        }
-      );
-    } else if (adminExist && adminExist.adminPassword !== sendAdminPassword) {
-      res.status(200).json({
-        adminExist: "notExist",
-      });
+        );
+      } else {
+        res.status(200).json({
+          adminExist: "notExist",
+        });
+      }
     } else {
       res.status(404).json({ adminError: "adminError" });
     }
   } catch (err) {
     console.error(err);
-    res
-      .status(500)
-      .json({ error: "Internal Server Error from admin endpoint" });
+    res.status(500).json({ error: "Internal Server Error from admin endpoint" });
   }
 });
+
 
 app.get("/userEmails", async (req, res) => {
   try {
