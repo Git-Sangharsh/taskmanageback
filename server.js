@@ -4,6 +4,7 @@ import cors from "cors";
 import bodyParser from "body-parser";
 import Jwt from "jsonwebtoken";
 import { config as dotenvConfig } from "dotenv";
+import bcrypt from "bcrypt";
 
 //! add this key into the env file
 dotenvConfig();
@@ -168,29 +169,33 @@ app.get("/admin", async (req, res) => {
   const { sendAdminName, sendAdminPassword } = req.query;
   try {
     const adminExist = await adminModel.findOne({ adminName: sendAdminName });
-    if (adminExist && adminExist.adminPassword === sendAdminPassword) {
-      Jwt.sign(
-        { userId: sendAdminName },
-        envJwtKey,
-        { expiresIn: "2h" },
-        (err, token) => {
-          if (err) {
-            res.status(500).json({ result: "something went wrong with jwt" });
+
+    if (adminExist) {
+      const passwordMatch = await bcrypt.compare(sendAdminPassword, adminExist.adminPassword);
+
+      if (passwordMatch) {
+        Jwt.sign(
+          { userId: sendAdminName },
+          envJwtKey,
+          { expiresIn: "2h" },
+          (err, token) => {
+            if (err) {
+              res.status(500).json({ result: "something went wrong with jwt" });
+            } else {
+              res.status(200).json({
+                adminSuccess: "adminSuccess",
+                adminName: adminExist.adminName,
+                auth: token,
+                generated: "generated",
+              });
+            }
           }
-          else {
-            res.status(200).json({
-              adminSuccess: "adminSuccess",
-              adminName: adminExist.adminName,
-              auth: token,
-              genrated: "genrated",
-            });
-          }
-        }
-      );
-    } else if (adminExist && adminExist.adminPassword !== sendAdminPassword) {
-      res.status(200).json({
-        adminExist: "notExist",
-      });
+        );
+      } else {
+        res.status(200).json({
+          adminExist: "notExist",
+        });
+      }
     } else {
       res.status(404).json({ adminError: "adminError" });
     }
